@@ -2,7 +2,6 @@
 
 CYRAL_SIDECAR_CLIENT_ID_CLEAN=${CYRAL_SIDECAR_CLIENT_ID//\//\\/}
 
-
 get_os_type () {
   local detected_os
   detected_os=$(cat /etc/*ease 2>/dev/null|awk '/^ID=/{ print $0}'|awk -F= '{print $2}'| tr -d '"')
@@ -335,26 +334,27 @@ generate_post_data () {
 EOF
 }
 
-# Check to make sure we've been provided an install type
-if [ -z "$CYRAL_SIDECAR_CLIENT_ID" ]
-then
-  print_usage
-else
-  #do_install "$(get_os_type)"
-  # Handle the arguments that were provided
-  while test $# -gt 0
-  do
-    case "$1" in
-        --local_package=*) INSTALL_PACKAGE=$(get_argument_value "$1")
-            ;;
-        *) print_usage
-            ;;
-    esac
-    shift
-  done
-fi
+# Check to make sure required env variables are set
+for var in CYRAL_SIDECAR_VERSION CYRAL_SIDECAR_ID CYRAL_SIDECAR_CLIENT_ID CYRAL_SIDECAR_CLIENT_SECRET CYRAL_CONTROL_PLANE; do
+  val=$(eval "echo \"\$$var\"")
+  if [ -z "$val" ]; then
+    echo "Error: Variables not set!"
+    print_usage
+    exit 1
+  fi
+done
 
-
+# Handle the arguments that were provided
+while test $# -gt 0
+do
+  case "$1" in
+      --local_package=*) INSTALL_PACKAGE=$(get_argument_value "$1")
+          ;;
+      *) print_usage
+          ;;
+  esac
+  shift
+done
 
 if [ -z "$INSTALL_PACKAGE" ] ;
 then
