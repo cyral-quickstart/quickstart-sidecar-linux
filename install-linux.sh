@@ -207,7 +207,6 @@ update_config_files () {
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mongodb-wire/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mysql-wire/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-pg-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-rest-wire/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-s3-wire/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-certificate-manager/config.yaml
   sudo sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
@@ -217,7 +216,6 @@ update_config_files () {
 
   # Fixes for multiple services using the same repo
   sudo sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
-  sudo sed -i "/^metrics-port:/c\metrics-port: 9036" /etc/cyral/cyral-rest-wire/config.yaml
   sudo sed -i "/^metrics-port:/c\metrics-port: 9024" /etc/cyral/cyral-s3-wire/config.yaml
 
   # Just in case tls is disabled we'll force it enabled
