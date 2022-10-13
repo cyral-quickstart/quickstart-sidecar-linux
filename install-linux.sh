@@ -209,6 +209,7 @@ update_config_files () {
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-pg-wire/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-s3-wire/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-certificate-manager/config.yaml
+  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dynamodb-wire/config.yaml
   sudo sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
   sudo sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
 
