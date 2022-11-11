@@ -302,8 +302,8 @@ pre_epic_tasks () {
 do_post_install () {
   echo "Running Post Install Tasks"
   pre_epic_tasks
-  update_config_files
   ask_services_to_disable
+  update_config_files
   restart_services
 }
 
