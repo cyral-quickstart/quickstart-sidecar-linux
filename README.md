@@ -9,10 +9,10 @@ for more detailed directions.
 
 ---
 
-## Prerequisites:
+## Prerequisites
 
-When you ran the sidecar Generate function in the Cyral control plane UI, it provided a set 
-of export commands to set parameters needed by this script. If you have not set these parameters 
+When you ran the sidecar Generate function in the Cyral control plane UI, it provided a set
+of export commands to set parameters needed by this script. If you have not set these parameters
 in your environment, set them now:
 
     CYRAL_CONTROL_PLANE: This is the host where your Cyral control plane runs. 
@@ -32,9 +32,11 @@ in your environment, set them now:
 
 On some OS, you may need to install [curl](https://curl.se/download.html) and [jq](https://stedolan.github.io/jq/download/) too.
 
+A minimum Control Plane version of `v2.34.0` is required for this script.
+
 ---
 
-## Usage:
+## Usage
 
 ```bash
 bash install-linux.sh
@@ -50,7 +52,7 @@ bash install-linux.sh --local_package=<binary_path>
 
 ---
 
-## Arguments:
+## Arguments
 
 **--local_package**: specify path to an already-downloaded Cyral sidecar RPM/DEB package, and prevent the script from downloading a new one.
 
@@ -58,13 +60,13 @@ bash install-linux.sh --local_package=<binary_path>
 
 ## Examples
 
-### Installation on RedHat/CentOS after executing commands:
+### Installation on RedHat/CentOS after executing commands
 
 ```bash
 bash install-linux.sh
 ```
 
-### Installation on Debian/Ubuntu using a binary that was already downloaded:
+### Installation on Debian/Ubuntu using a binary that was already downloaded
 
 ```bash
 bash install-linux.sh --local_package=/tmp/cyral-sidecar-v2.26.1.deb
