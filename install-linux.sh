@@ -1,6 +1,8 @@
 #!/bin/bash
 
 CYRAL_SIDECAR_CLIENT_ID_CLEAN=${CYRAL_SIDECAR_CLIENT_ID//\//\\/}
+CYRAL_CONTROL_PLANE_HTTPS_PORT=443
+CYRAL_CONTROL_PLANE_GRPC_PORT=443
 
 get_os_type () {
   local detected_os
@@ -193,9 +195,9 @@ update_config_files () {
   sudo sed -i "/^secret-manager-type:/c\secret-manager-type: \"direct\"" /etc/cyral/cyral-forward-proxy/config.yaml
   sudo sed -i "/^secret-manager-meta:/c\secret-manager-meta: \"${META_STRING}\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
-  sudo sed -i "/^grpc-gateway-address:/c\grpc-gateway-address: \"${CYRAL_CONTROL_PLANE}:9080\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sudo sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:8000\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sudo sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:8000/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sudo sed -i "/^grpc-gateway-address:/c\grpc-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_GRPC_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sudo sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sudo sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-forward-proxy/config.yaml
   sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-authenticator/config.yaml
@@ -358,10 +360,16 @@ done
 if [ -z "$INSTALL_PACKAGE" ] ;
 then
   echo "Getting access to the CP"
-  TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:8000/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1)
+  TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1)
   if [[ $? -ne 0 ]] ; then
-    echo "$TOKEN"
-    exit 1
+    #attempt with previous ports
+    CYRAL_CONTROL_PLANE_HTTPS_PORT=8000
+    CYRAL_CONTROL_PLANE_GRPC_PORT=9080
+    TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1)
+    if [[ $? -ne 0 ]] ; then
+      echo "$TOKEN"
+      exit 1
+    fi
   fi
 
   ACCESS_TOKEN=$(echo "$TOKEN" | jq -r .access_token)
@@ -371,7 +379,7 @@ then
   fi
 
   echo "Downloading the binaries"
-  DOWNLOAD_STATUS=$(curl --write-out "%{http_code}" "https://$CYRAL_CONTROL_PLANE:8000/v1/templates/download/$ROUTE/$CYRAL_SIDECAR_VERSION" -H "authorization: Bearer $ACCESS_TOKEN" --output $BINARIES_NAME)
+  DOWNLOAD_STATUS=$(curl --write-out "%{http_code}" "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/templates/download/$ROUTE/$CYRAL_SIDECAR_VERSION" -H "authorization: Bearer $ACCESS_TOKEN" --output $BINARIES_NAME)
   
   if [[ "$DOWNLOAD_STATUS" -ne 200 ]] ; then
     echo "Error: Status code $DOWNLOAD_STATUS when downloading binaries"
