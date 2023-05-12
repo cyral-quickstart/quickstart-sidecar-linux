@@ -38,15 +38,29 @@ A minimum Control Plane version of `v2.34.0` is required for this script.
 
 ## Usage
 
-```bash
-bash install-linux.sh
-```
+This can be run on demand with automation with the variables fed to it
+
+    ```bash
+    CYRAL_CONTROL_PLANE=<control plane url> \
+    CYRAL_SIDECAR_ID=<sidecar id> \
+    CYRAL_SIDECAR_CLIENT_ID='<client id>' \
+    CYRAL_SIDECAR_CLIENT_SECRET="<client secret>" \
+    CYRAL_SIDECAR_VERSION='<sidecar version>' \
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/cyral-quickstart/quickstart-sidecar-linux/main/install-linux.sh)"
+    ```
+
+Otherwise you can do a git clone and execute the install
+
+    ```bash
+    git clone https://github.com/cyral-quickstart/quickstart-sidecar-linux.git
+    bash install-linux.sh
+    ```
 
 If you have already downloaded the binaries and do not want to download them again, use the `--local_package` argument to provide the location of the downloaded binaries, as shown below:
 
-```bash
-bash install-linux.sh --local_package=<binary_path>
-```
+    ```bash
+    bash install-linux.sh --local_package=<binary_path>
+    ```
 
 > **IMPORTANT:** You must run the script as **superuser**!
 
@@ -62,12 +76,12 @@ bash install-linux.sh --local_package=<binary_path>
 
 ### Installation on RedHat/CentOS after executing commands
 
-```bash
-bash install-linux.sh
-```
+    ```bash
+    bash install-linux.sh
+    ```
 
 ### Installation on Debian/Ubuntu using a binary that was already downloaded
 
-```bash
-bash install-linux.sh --local_package=/tmp/cyral-sidecar-v2.26.1.deb
-```
+    ```bash
+    bash install-linux.sh --local_package=/tmp/cyral-sidecar-v2.26.1.deb
+    ```
