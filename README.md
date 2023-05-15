@@ -28,6 +28,8 @@ in your environment, set them now:
 
     CYRAL_SIDECAR_VERSION: Sidecar binary version to be deployed, for instance: v2.32.2
 
+    CYRAL_REPOSITORIES_SUPPORTED: a space seperated list of wires you'd like enabled. if not set all wires are enabled.
+
 > **IMPORTANT:** You must run the export commands as **superuser**!
 
 On some OS, you may need to install [curl](https://curl.se/download.html) and [jq](https://stedolan.github.io/jq/download/) too.
@@ -41,7 +43,7 @@ A minimum Control Plane version of `v2.34.0` is required for this script.
 This can be run on demand with automation with the variables fed to it
 
     ```bash
-    CYRAL_CONTROL_PLANE=<control plane url> \
+    sudo CYRAL_CONTROL_PLANE=<control plane url> \
     CYRAL_SIDECAR_ID=<sidecar id> \
     CYRAL_SIDECAR_CLIENT_ID='<client id>' \
     CYRAL_SIDECAR_CLIENT_SECRET="<client secret>" \
@@ -53,13 +55,13 @@ Otherwise you can do a git clone and execute the install
 
     ```bash
     git clone https://github.com/cyral-quickstart/quickstart-sidecar-linux.git
-    bash install-linux.sh
+    sudo ./install-linux.sh
     ```
 
 If you have already downloaded the binaries and do not want to download them again, use the `--local_package` argument to provide the location of the downloaded binaries, as shown below:
 
     ```bash
-    bash install-linux.sh --local_package=<binary_path>
+    sudo ./install-linux.sh --local_package=<binary_path>
     ```
 
 > **IMPORTANT:** You must run the script as **superuser**!
@@ -77,11 +79,11 @@ If you have already downloaded the binaries and do not want to download them aga
 ### Installation on RedHat/CentOS after executing commands
 
     ```bash
-    bash install-linux.sh
+    sudo ./install-linux.sh
     ```
 
 ### Installation on Debian/Ubuntu using a binary that was already downloaded
 
     ```bash
-    bash install-linux.sh --local_package=/tmp/cyral-sidecar-v2.26.1.deb
+    sudo ./install-linux.sh --local_package=/tmp/cyral-sidecar-v2.26.1.deb
     ```
