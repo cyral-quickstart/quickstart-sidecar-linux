@@ -28,7 +28,8 @@ in your environment, set them now:
 
     CYRAL_SIDECAR_VERSION: Sidecar binary version to be deployed, for instance: v2.32.2
 
-    CYRAL_REPOSITORIES_SUPPORTED: a space seperated list of wires you'd like enabled. if not set all wires are enabled.
+    CYRAL_REPOSITORIES_SUPPORTED: a space seperated list of wires you'd like enabled. if not set all wires are enabled. 
+    For example the value "pg oracle" would only enable the postgres and oracle wires.
 
 > **IMPORTANT:** You must run the export commands as **superuser**!
 
