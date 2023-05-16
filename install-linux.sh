@@ -52,6 +52,8 @@ in your environment, set them now:
 
     CYRAL_SIDECAR_VERSION: Sidecar binary version to be deployed, for instance: v2.32.2
 
+    CYRAL_REPOSITORIES_SUPPORTED: a space seperated list of wires you'd like enabled. if not set all wires are enabled.
+
 IMPORTANT: You must run the export commands as superuser!
 
 On some OS, you may need to install curl (https://curl.se/download.html) and jq (https://stedolan.github.io/jq/download/) too.
@@ -84,7 +86,6 @@ Example installation on Debian/Ubuntu using a binary that was already downloaded
 
 bash install-linux --local_package=/tmp/cyral-sidecar-v2.26.1.deb
 "
-  exit
 }
 
 # We'll run this if we fail in the install for some reason
@@ -102,7 +103,7 @@ install_error () {
     echo "$1"
   fi
   echo ""
-  exit
+  exit 2
 }
 
 pre_update_tasks () { # double check echos   
@@ -123,15 +124,15 @@ pre_update_tasks () { # double check echos
 
 post_update_tasks () { 
   # The port is wrong here so it needs to be corrected
-  sudo sed -i "s/8050/8069/" /etc/default/cyral-push-client
+  sed -i "s/8050/8069/" /etc/default/cyral-push-client
 
   # We need to add a sleep in the push proxy service file so it doesn't come up before the forward proxy connects
   # TODO :: Figure out proper way to do this in the push-client repo
-  sudo sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 60\"" /usr/lib/systemd/system/cyral-push-client.service
+  sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 60\"" /usr/lib/systemd/system/cyral-push-client.service
 
   # Making sure we add in our file descriptor limits to the wires and dispatcher - ENG-8504
-  sudo sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-dispatcher.service
-  sudo sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-*wire.service
+  sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-dispatcher.service
+  sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-*wire.service
 }
 
 
@@ -157,14 +158,38 @@ check_os_version () {
 install_ubuntu () {
   echo "Doing an Ubuntu Install"
   sleep 2
-  dpkg --force-all -i "${INSTALL_PACKAGE}" 2>/dev/null
+  do_dpkg_install
 }
 
 # This is to perform installation tasks specific to Red Hat / CentOS
 install_rhel () {
   echo "Doing a Red Hat Install"
   sleep 2
-  sudo rpm -U --force "${INSTALL_PACKAGE}" 2>/dev/null
+  do_rpm_install
+}
+
+install_amzn () {
+  echo "Doing a Amazon Linux Install"
+  sleep 2
+  do_rpm_install
+}
+
+do_rpm_install(){
+  if rpm -q cyral-sidecar > /dev/null 2>&1; then
+    echo "Removing existing installation..."
+    rpm -e --erase cyral-sidecar >/dev/null 2>&1
+  fi
+  echo "Installing sidecar..."
+   rpm -U --force "${INSTALL_PACKAGE}" 2>/dev/null
+}
+
+do_dpkg_install(){
+  if dpkg -s cyral-sidecar > /dev/null 2>&1; then
+    echo "Removing existing installation..."
+    rpm -r cyral-sidecar >/dev/null 2>&1
+  fi
+  echo "Installing sidecar..."
+  dpkg -i --force-all "${INSTALL_PACKAGE}" 2>/dev/null
 }
 
 # Perform an install of the sidecar package
@@ -175,6 +200,8 @@ do_install () {
     install_ubuntu
   elif [ "$1" = "centos" ]; then
     install_rhel
+  elif [ "$1" = "amzn" ]; then
+    install_amzn
   elif [ "$1" = "ol" ]; then
     check_os_version "$1"
     install_rhel
@@ -186,69 +213,68 @@ do_install () {
 # For installs we need to bring in the tar files and add in the sidecar specific details
 update_config_files () {
   cd /
-  echo "Updating Configuration Files"
+  echo "Updating Configuration Files..."
   local SPECIAL_QUOTE='\\\"'
 
   local META_STRING="\{${SPECIAL_QUOTE}clientId${SPECIAL_QUOTE}:${SPECIAL_QUOTE}${CYRAL_SIDECAR_CLIENT_ID_CLEAN}${SPECIAL_QUOTE},${SPECIAL_QUOTE}clientSecret${SPECIAL_QUOTE}:${SPECIAL_QUOTE}${CYRAL_SIDECAR_CLIENT_SECRET}${SPECIAL_QUOTE}\}"
 
   pre_update_tasks
-  sudo sed -i "/^secret-manager-type:/c\secret-manager-type: \"direct\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sudo sed -i "/^secret-manager-meta:/c\secret-manager-meta: \"${META_STRING}\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^secret-manager-type:/c\secret-manager-type: \"direct\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^secret-manager-meta:/c\secret-manager-meta: \"${META_STRING}\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
-  sudo sed -i "/^grpc-gateway-address:/c\grpc-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_GRPC_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sudo sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sudo sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^grpc-gateway-address:/c\grpc-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_GRPC_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-authenticator/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-sqlserver-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-oracle-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-alerter/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dispatcher/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dremio-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mongodb-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mysql-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-pg-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-s3-wire/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-certificate-manager/config.yaml
-  sudo sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dynamodb-wire/config.yaml
-  sudo sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
-  sudo sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-authenticator/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-sqlserver-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-oracle-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-alerter/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dispatcher/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dremio-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mongodb-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mysql-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-pg-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-s3-wire/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-certificate-manager/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dynamodb-wire/config.yaml
+  sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
+  sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
 
-  sudo sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-sidecar-exporter/config.yaml
+  sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-sidecar-exporter/config.yaml
 
   # Fixes for multiple services using the same repo
-  sudo sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
-  sudo sed -i "/^metrics-port:/c\metrics-port: 9024" /etc/cyral/cyral-s3-wire/config.yaml
+  sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
+  sed -i "/^metrics-port:/c\metrics-port: 9024" /etc/cyral/cyral-s3-wire/config.yaml
 
   # Just in case tls is disabled we'll force it enabled
-  sudo sed -i "/^tls-type:/c\tls-type: \"tls\"" /etc/cyral/cyral-forward-proxy/config.yaml
+  sed -i "/^tls-type:/c\tls-type: \"tls\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
   post_update_tasks
 }
 
-ask_services_to_disable () {
-  echo "Asking for services to disable"
-  readarray -t WIRES < <(find /etc/cyral/ -name \*-wire\*|awk -F'/' '{print $4}')
+disable_unsupported_services () {
+  echo "Disable unsupported wires"
+  readarray -t WIRES < <(find /etc/cyral/ -type d -name "*-wire" -printf "%f\n")
+  wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire"|cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
 
-  for i in "${WIRES[@]}"
-  do
-    echo "Do you want to disable the ${i}? (yes/no) [no]":
-    read -r CHECK
-    if [ "$CHECK" == "yes" ]
-    then
-      DELETED_WIRES+=("${i}")
+  for wire in "${WIRES[@]}"; do
+    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " =~ " ${wire} " ]]; then
+      if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
+        echo "Disabling ${wire}..."
+        systemctl disable "${wire}"
+      else
+        echo "already disabled $wire"
+      fi
+    else
+      if [[ $(systemctl is-enabled "${wire}") == "disabled" ]]; then
+        echo "Enabling ${wire}..."
+        systemctl enable "${wire}"
+      else
+        echo "already enabled $wire"
+      fi
     fi
-  done
-
-  # We need to reload any of our changes to the systemd files before restarting
-  systemctl daemon-reload
-  
-  for i in "${DELETED_WIRES[@]}"
-  do
-    sudo systemctl stop "${i}"
-    sudo systemctl disable "${i}"
-    echo "Wire disabled: ${i}"
   done
 }
 
@@ -256,55 +282,33 @@ ask_services_to_disable () {
 restart_services () {
   # We need to reload any of our changes to the systemd files before restarting
   systemctl daemon-reload
-
-  # This is a list of all services we'll need to restart
-  readarray -t SERVICES < <(ls -ald /etc/cyral/cyral-*|awk '{split($0,a,"/"); print a[4]}')
-
-  echo "Restaring Cyral Services..."
-  for i in "${SERVICES[@]}"
-  do
-
-    DELETED=false
-    for w in "${DELETED_WIRES[@]}"
-    do
-      if [ "${i}" = "${w}" ]
-      then
-        DELETED=true
-      fi
-    done
-
-    if [ "$DELETED" = false ]
-    then
-      echo "Restarting: ${i}"
-      sudo systemctl restart "${i}" 2>/dev/null
-      sleep 5
-    fi
-
-  done
+  systemctl restart cyral-*
 }
 
 # TODO :: Remove this once Epic complete
 pre_epic_tasks () {
   # We need to remove the CYRAL_SIDECAR_EXPORTER_ from the beginning of the env vars in cyral-sidecar-exporter
-  sudo sed -i "s/^CYRAL_SIDECAR_EXPORTER_//" /etc/default/cyral-sidecar-exporter
+  sed -i "s/^CYRAL_SIDECAR_EXPORTER_//" /etc/default/cyral-sidecar-exporter
 
   # We need to add a sleep in the push proxy service file so it doesn't come up before the forward proxy connects
   # TODO :: Figure out proper way to do this in the push-client repo
-  sudo sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 30\"" /usr/lib/systemd/system/cyral-push-client.service
+  sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 30\"" /usr/lib/systemd/system/cyral-push-client.service
 
   # Need to fix the variable for control plane host and port Ref, ENG-7352
-  sudo sed -i "s/^controlplane_host:/controlplane-host:/" /etc/cyral/cyral-sidecar-exporter/config.yaml
-  sudo sed -i "s/^controlplane_port:/controlplane-port:/" /etc/cyral/cyral-sidecar-exporter/config.yaml
+  sed -i "s/^controlplane_host:/controlplane-host:/" /etc/cyral/cyral-sidecar-exporter/config.yaml
+  sed -i "s/^controlplane_port:/controlplane-port:/" /etc/cyral/cyral-sidecar-exporter/config.yaml
 
   # We need to get rid of the CYRAL_PUSH_CLIENT_STORAGE_ from push-client
-  sudo sed -i "s/^CYRAL_PUSH_CLIENT_STORAGE_//" /etc/default/cyral-push-client
+  sed -i "s/^CYRAL_PUSH_CLIENT_STORAGE_//" /etc/default/cyral-push-client
 }
 
 # Perform all Post Installation Tasks
 do_post_install () {
-  echo "Running Post Install Tasks"
+  echo "Running Post Install Tasks..."
   pre_epic_tasks
-  ask_services_to_disable
+  if [ -n "$CYRAL_REPOSITORIES_SUPPORTED" ]; then
+    disable_unsupported_services
+  fi
   update_config_files
   restart_services
 }
@@ -352,6 +356,7 @@ do
       --local_package=*) INSTALL_PACKAGE=$(get_argument_value "$1")
           ;;
       *) print_usage
+         exit
           ;;
   esac
   shift
@@ -359,14 +364,13 @@ done
 
 if [ -z "$INSTALL_PACKAGE" ] ;
 then
-  echo "Getting access to the CP"
-  TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1)
-  if [[ $? -ne 0 ]] ; then
+  echo "Getting access to the Control Plane"
+  
+  if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
     #attempt with previous ports
     CYRAL_CONTROL_PLANE_HTTPS_PORT=8000
     CYRAL_CONTROL_PLANE_GRPC_PORT=9080
-    TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1)
-    if [[ $? -ne 0 ]] ; then
+    if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
       echo "$TOKEN"
       exit 1
     fi
