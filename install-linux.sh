@@ -4,6 +4,7 @@ CYRAL_SIDECAR_CLIENT_ID_CLEAN=${CYRAL_SIDECAR_CLIENT_ID//\//\\/}
 CYRAL_CONTROL_PLANE_HTTPS_PORT=443
 CYRAL_CONTROL_PLANE_GRPC_PORT=443
 
+
 get_os_type () {
   local detected_os
   detected_os=$(cat /etc/*ease 2>/dev/null|awk '/^ID=/{ print $0}'|awk -F= '{print $2}'| tr -d '"')
@@ -19,11 +20,6 @@ define_route () {
 
   BINARIES_NAME=cyral-sidecar.$ROUTE
 }
-
-# We need to get the OS TYPE before we continue
-OS_TYPE="$(get_os_type)"
-
-define_route "$OS_TYPE"
 
 # This is our usage details
 print_usage () {
@@ -63,7 +59,8 @@ On some OS, you may need to install curl (https://curl.se/download.html) and jq 
 
 Usage:
 
-bash install-linux  
+bash install-linux OS_TYPE="$(get_os_type)"
+define_route "$OS_TYPE" 
 
 If you have already downloaded the binaries and do not want to download them again, use the --local_package argument to provide the location of the downloaded binaries, as shown below:
 
@@ -136,8 +133,6 @@ post_update_tasks () {
   sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-*wire.service
 }
 
-
-
 # This is to check the /etc/ directory for any "release" related files to find the Linux distribution version
 get_os_major_version_id () {
   local detected_version_id
@@ -209,6 +204,7 @@ do_install () {
   else
     install_error "Unsupported Platform"
   fi
+  do_post_install
 }
 
 # For installs we need to bring in the tar files and add in the sidecar specific details
@@ -314,18 +310,10 @@ do_post_install () {
   restart_services
 }
 
-# Get the argument value
 get_argument_value () {
   local argument_value
   argument_value=$(echo "$1"|awk -F= '{print $2}'| tr -d '"')
   echo "$argument_value"
-}
-
-# Retrieve the appropriate install package from the customer CP
-get_install_package () {
-  echo "Detected OS Type : $1"
-  echo "Customer CP : $2"
-  echo "Sidecar Version : $3"
 }
 
 generate_post_data () {
@@ -340,31 +328,7 @@ generate_post_data () {
 EOF
 }
 
-# Check to make sure required env variables are set
-for var in CYRAL_SIDECAR_VERSION CYRAL_SIDECAR_ID CYRAL_SIDECAR_CLIENT_ID CYRAL_SIDECAR_CLIENT_SECRET CYRAL_CONTROL_PLANE; do
-  val=$(eval "echo \"\$$var\"")
-  if [ -z "$val" ]; then
-    echo "Error: Variables not set!"
-    print_usage
-    exit 1
-  fi
-done
-
-# Handle the arguments that were provided
-while test $# -gt 0
-do
-  case "$1" in
-      --local_package=*) INSTALL_PACKAGE=$(get_argument_value "$1")
-          ;;
-      *) print_usage
-         exit
-          ;;
-  esac
-  shift
-done
-
-if [ -z "$INSTALL_PACKAGE" ] ;
-then
+download_package () {
   echo "Getting access to the Control Plane"
   
   if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
@@ -379,7 +343,7 @@ then
 
   ACCESS_TOKEN=$(echo "$TOKEN" | jq -r .access_token)
   if [[ -z "$ACCESS_TOKEN" ]] ; then
-    echo "Error: Could not connect to the CP. Check CYRAL_SIDECAR_CLIENT_ID and CYRAL_SIDECAR_CLIENT_SECRET and try again"
+    echo "Error: Could not connect to the Control Plane. Check CYRAL_SIDECAR_CLIENT_ID and CYRAL_SIDECAR_CLIENT_SECRET and try again"
     exit 1
   fi
 
@@ -392,21 +356,42 @@ then
   else
     echo "Binaries were downloaded correctly."
   fi
-
   INSTALL_PACKAGE=$BINARIES_NAME
-  if [ -z "$INSTALL_PACKAGE" ] ;
-  then
-    echo "No install package provided."
-    print_usage
-    exit 1
-  fi
-else
-  echo "You provided the install package: $INSTALL_PACKAGE"
+}
+
+get_config () {
+  # Check to make sure required env variables are set
+  for var in CYRAL_SIDECAR_VERSION CYRAL_SIDECAR_ID CYRAL_SIDECAR_CLIENT_ID CYRAL_SIDECAR_CLIENT_SECRET CYRAL_CONTROL_PLANE; do
+    val=$(eval "echo \"\$$var\"")
+    if [ -z "$val" ]; then
+      echo "Error: Variables not set!"
+      print_usage
+      exit 1
+    fi
+  done
+}
+
+##main
+
+OS_TYPE="$(get_os_type)"
+define_route "$OS_TYPE"
+
+# Handle the arguments that were provided
+while test $# -gt 0; do
+  case "$1" in
+      --local_package=*) INSTALL_PACKAGE=$(get_argument_value "$1")
+          ;;
+      *) print_usage
+        exit
+          ;;
+  esac
+  shift
+done
+
+get_config
+
+if [ -z "$INSTALL_PACKAGE" ] ; then
+  download_package
 fi
 
-# If the install packge hasn't been defined, then we retrieve it
-[ -z "$INSTALL_PACKAGE" ] && get_install_package "$OS_TYPE" "$CYRAL_CONTROL_PLANE" "$CYRAL_SIDECAR_VERSION"
-
 do_install "$OS_TYPE"
-
-do_post_install
