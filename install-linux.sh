@@ -3,7 +3,7 @@
 CYRAL_SIDECAR_CLIENT_ID_CLEAN=${CYRAL_SIDECAR_CLIENT_ID//\//\\/}
 CYRAL_CONTROL_PLANE_HTTPS_PORT=443
 CYRAL_CONTROL_PLANE_GRPC_PORT=443
-
+NL=$'\n'
 
 get_os_type () {
   local detected_os
@@ -59,8 +59,7 @@ On some OS, you may need to install curl (https://curl.se/download.html) and jq 
 
 Usage:
 
-bash install-linux OS_TYPE="$(get_os_type)"
-define_route "$OS_TYPE" 
+bash install-linux
 
 If you have already downloaded the binaries and do not want to download them again, use the --local_package argument to provide the location of the downloaded binaries, as shown below:
 
@@ -336,6 +335,7 @@ download_package () {
     CYRAL_CONTROL_PLANE_HTTPS_PORT=8000
     CYRAL_CONTROL_PLANE_GRPC_PORT=9080
     if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
+      echo "Failed to retrieve control plane token."
       echo "$TOKEN"
       exit 1
     fi
@@ -361,17 +361,67 @@ download_package () {
 
 get_config () {
   # Check to make sure required env variables are set
-  for var in CYRAL_SIDECAR_VERSION CYRAL_SIDECAR_ID CYRAL_SIDECAR_CLIENT_ID CYRAL_SIDECAR_CLIENT_SECRET CYRAL_CONTROL_PLANE; do
-    val=$(eval "echo \"\$$var\"")
-    if [ -z "$val" ]; then
-      echo "Error: Variables not set!"
-      print_usage
-      exit 1
+  local sidecarId jsonsecret clientId clientSecret controlPlane unsetVar
+  configFile='/etc/cyral/cyral-forward-proxy/config.yaml'
+  if [[ -r "$configFile" ]]; then
+    sidecarId=$(awk -F '^sidecar-id: "|"' '/sidecar-id:/{print $2}' "$configFile")
+    jsonsecret=$(sed -n '/^secret-manager-meta:/ s/.*: "\(.*\)"/\1/p' "$configFile" | sed 's/\\"/"/g')
+    clientId=$(echo "$jsonsecret" | jq -r '.clientId')
+    clientSecret=$(echo "$jsonsecret" | jq -r '.clientSecret')
+    controlPlane=$(awk -F':' '/^grpc-gateway-address/ {print $2}' "$configFile" | awk '{gsub(/"/, "", $1); print $1}')
+  fi
+  #sidecar version
+  if [[ -z "$CYRAL_SIDECAR_VERSION" ]]; then
+    unsetVar="CYRAL_SIDECAR_VERSION"
+  fi
+  # control plane
+  if [[ -z "$CYRAL_CONTROL_PLANE" ]]; then
+    if [[ -z "$controlPlane" ]]; then
+      unsetVar+="${NL}CYRAL_CONTROL_PLANE"
+    else
+      CYRAL_CONTROL_PLANE="$controlPlane"
     fi
-  done
+  fi
+  #sidecar id
+  if [[ -z "$CYRAL_SIDECAR_ID" ]]; then
+    if [[ -z "$sidecarId" ]]; then
+      unsetVar+="${NL}CYRAL_SIDECAR_ID"
+    else
+      CYRAL_SIDECAR_ID="$sidecarId"
+    fi
+  fi
+  #client id
+  if [[ -z "$CYRAL_SIDECAR_CLIENT_ID"  ]]; then
+    if [[ -z "$clientId" ]]; then
+      unsetVar+="${NL}CYRAL_SIDECAR_CLIENT_ID"
+    else
+      CYRAL_SIDECAR_CLIENT_ID="$clientId"
+    fi
+  fi
+  #client secret
+  if [[ -z "$CYRAL_SIDECAR_CLIENT_SECRET"  ]]; then
+    if [[ -z "$clientSecret" ]]; then
+      unsetVar+="${NL}CYRAL_SIDECAR_CLIENT_SECRET"
+    else
+      CYRAL_SIDECAR_CLIENT_SECRET="$clientSecret"
+    fi
+  fi
+  
+  if [[ -n "$unsetVar" ]]; then
+    print_usage
+    echo "-----------"
+    echo "ERROR - Unable to obtain values for the following variables:"
+    echo "$unsetVar"
+    exit 1
+  fi
 }
 
 ##main
+
+if [ "$EUID" -ne 0 ] && [ "$(id -un)" != "root" ]; then
+  echo "This script requires elevated permissions. Please execute with sudo."
+  exit 1
+fi
 
 OS_TYPE="$(get_os_type)"
 define_route "$OS_TYPE"
