@@ -328,6 +328,47 @@ generate_post_data () {
 EOF
 }
 
+log_detected_advanced_vars () {
+    local var_names="$1"
+    for var_name in $var_names; do
+        local var_val="$(eval $var_name)"
+        if [ -n "$var_val" ]; then
+            echo "Advanced config variable $var_name detected"
+        fi
+    done
+}
+
+set_config_var () {
+    local env_varname="$1"
+    local config_varname="$2"
+    local service_name="$3"
+    local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
+    if [ -n "$(cat "$config_fpath" | grep -E "^${config_varname}:")" ]; then
+        # Variable already exists in config file, just override
+        sed -i "s/^${config_varname}:/${config_varname}: ${!env_varname}/g" \
+            "$config_fpath"
+    else
+        # Variable does not exist, append it to config file
+        printf "${config_varname}: ${!env_varname}" >> "$config_fpath"
+    fi
+}
+
+set_advanced_vars () {
+    local cert_advanced_env_vars=(CYRAL_SIDECAR_TLS_CERT CYRAL_SIDECAR_TLS_PRIVATE_KEY CYRAL_SIDECAR_CA_CERT CYRAL_SIDECAR_CA_PRIVATE_KEY)
+    local cert_advanced_config_vars=(tls-cert tls-key ca-cert ca-key)
+    local cert_advanced_config_service='certificate-manager'
+    local advanced_vars="${cert_advanced_env_vars[*]}"
+    log_detected_advanced_var "${advanced_vars[*]}"
+
+    i=0
+    while [ "$i" -lt "${cert_advanced_env_vars[#]}" ]; do
+        set_config_var "${cert_advanced_env_vars[$i]}" \
+                       "${cert_advanced_config_vars[$i]}" \
+                       "$cert_advanced_config_service"
+        i=$(( i + 1 ))
+    done
+}
+
 download_package () {
   echo "Getting access to the Control Plane"
   
