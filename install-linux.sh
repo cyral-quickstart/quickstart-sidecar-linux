@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CYRAL_SIDECAR_CLIENT_ID_CLEAN=${CYRAL_SIDECAR_CLIENT_ID//\//\\/}
+
 CYRAL_CONTROL_PLANE_HTTPS_PORT=443
 CYRAL_CONTROL_PLANE_GRPC_PORT=443
 NL=$'\n'
@@ -208,9 +208,10 @@ do_install () {
 
 # For installs we need to bring in the tar files and add in the sidecar specific details
 update_config_files () {
-  cd /
   echo "Updating Configuration Files..."
+  local CYRAL_SIDECAR_CLIENT_ID_CLEAN
   local SPECIAL_QUOTE='\\\"'
+  CYRAL_SIDECAR_CLIENT_ID_CLEAN=${CYRAL_SIDECAR_CLIENT_ID//\//\\/}
 
   local META_STRING="\{${SPECIAL_QUOTE}clientId${SPECIAL_QUOTE}:${SPECIAL_QUOTE}${CYRAL_SIDECAR_CLIENT_ID_CLEAN}${SPECIAL_QUOTE},${SPECIAL_QUOTE}clientSecret${SPECIAL_QUOTE}:${SPECIAL_QUOTE}${CYRAL_SIDECAR_CLIENT_SECRET}${SPECIAL_QUOTE}\}"
 
@@ -278,7 +279,7 @@ disable_unsupported_services () {
 restart_services () {
   # We need to reload any of our changes to the systemd files before restarting
   systemctl daemon-reload
-  systemctl restart cyral-*
+  (cd /;systemctl restart cyral-*) # without this it will use the filenames local to it
 }
 
 # TODO :: Remove this once Epic complete
@@ -330,11 +331,11 @@ EOF
 download_package () {
   echo "Getting access to the Control Plane"
   
-  if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
+  if ! TOKEN=$(curl --fail-with-body --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
     #attempt with previous ports
     CYRAL_CONTROL_PLANE_HTTPS_PORT=8000
     CYRAL_CONTROL_PLANE_GRPC_PORT=9080
-    if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
+    if ! TOKEN=$(curl --fail-with-body --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
       echo "Failed to retrieve control plane token."
       echo "$TOKEN"
       exit 1
@@ -420,6 +421,11 @@ get_config () {
 
 if [ "$EUID" -ne 0 ] && [ "$(id -un)" != "root" ]; then
   echo "This script requires elevated permissions. Please execute with sudo."
+  exit 1
+fi
+
+if ! command -v jq &> /dev/null; then
+  echo "Please install jq first"
   exit 1
 fi
 
