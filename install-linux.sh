@@ -257,7 +257,7 @@ disable_unsupported_services () {
   wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire"|cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
 
   for wire in "${WIRES[@]}"; do
-    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " =~ " ${wire} " ]]; then
+    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " =~ \ ${wire}\  ]]; then
       if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
         echo "Disabling ${wire}..."
         systemctl disable "${wire}"
@@ -330,8 +330,9 @@ EOF
 
 log_detected_advanced_vars () {
     local var_names="$1"
+    local var_val
     for var_name in $var_names; do
-        local var_val="$(eval $var_name)"
+        var_val="$(eval $var_name)"
         if [ -n "$var_val" ]; then
             echo "Advanced config variable $var_name detected"
         fi
