@@ -237,10 +237,10 @@ set_advanced_config () {
     local cert_advanced_config_vars=(tls-cert tls-key ca-cert ca-key)
     local cert_advanced_config_service='certificate-manager'
     local advanced_vars="${cert_advanced_env_vars[*]}"
-    log_detected_advanced_var "${advanced_vars[*]}"
+    log_detected_advanced_vars "${advanced_vars[*]}"
 
     i=0
-    while [ "$i" -lt "${cert_advanced_env_vars[#]}" ]; do
+    while [ "$i" -lt "${#cert_advanced_env_vars[@]}" ]; do
         set_config_var "${cert_advanced_env_vars[$i]}" \
                        "${cert_advanced_config_vars[$i]}" \
                        "$cert_advanced_config_service"
