@@ -210,7 +210,7 @@ log_detected_advanced_vars () {
     local var_names="$1"
     local var_val
     for var_name in $var_names; do
-        var_val="$(eval $var_name)"
+        var_val="$(printf "${!var_name}")"
         if [ -n "$var_val" ]; then
             echo "Advanced config variable $var_name detected"
         fi
@@ -221,14 +221,16 @@ set_config_var () {
     local env_varname="$1"
     local config_varname="$2"
     local service_name="$3"
+    local env_varval="${!env_varname}"
     local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
+    [ -z "$env_varval" ] && return
     if [ -n "$(cat "$config_fpath" | grep -E "^${config_varname}:")" ]; then
         # Variable already exists in config file, just override
-        sed -i "s/^${config_varname}:/${config_varname}: ${!env_varname}/g" \
+        sed -i "s/^${config_varname}:.*/${config_varname}: ${env_varval}/g" \
             "$config_fpath"
     else
         # Variable does not exist, append it to config file
-        printf "${config_varname}: ${!env_varname}" >> "$config_fpath"
+        printf "${config_varname}: ${env_varval}\n" >> "$config_fpath"
     fi
 }
 
