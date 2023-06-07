@@ -88,3 +88,7 @@ sudo ./install-linux.sh
 ```bash
 sudo ./install-linux.sh --local_package=/tmp/cyral-sidecar-v2.26.1.deb
 ```
+
+## Advanced Options
+
+Advanced sidecar options can be found in [ADVANCED.md](../main/ADVANCED.md)

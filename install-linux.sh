@@ -206,6 +206,52 @@ do_install () {
   do_post_install
 }
 
+log_detected_advanced_vars () {
+    local var_names="$1"
+    local var_val
+    for var_name in $var_names; do
+        var_val="${!var_name}"
+        if [ -n "$var_val" ]; then
+            echo "Advanced config variable $var_name detected"
+        fi
+    done
+}
+
+set_config_var () {
+    local env_varname="$1"
+    local config_varname="$2"
+    local service_name="$3"
+    local env_varval="${!env_varname}"
+    local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
+    # If var is empty don't touch the config
+    [ -z "$env_varval" ] && return
+
+    if [ -n "$(cat "$config_fpath" | grep -E "^${config_varname}:")" ]; then
+        # Variable already exists in config file, just override
+        sed -i "s/^${config_varname}:.*/${config_varname}: ${env_varval}/g" \
+            "$config_fpath"
+    else
+        # Variable does not exist, append it to config file
+        printf "${config_varname}: ${env_varval}\n" >> "$config_fpath"
+    fi
+}
+
+set_advanced_config () {
+    local cert_advanced_env_vars=(CYRAL_SIDECAR_TLS_CERT CYRAL_SIDECAR_TLS_PRIVATE_KEY CYRAL_SIDECAR_CA_CERT CYRAL_SIDECAR_CA_PRIVATE_KEY)
+    local cert_advanced_config_vars=(tls-cert tls-key ca-cert ca-key)
+    local cert_advanced_config_service='certificate-manager'
+    local advanced_vars="${cert_advanced_env_vars[*]}"
+    log_detected_advanced_vars "${advanced_vars[*]}"
+
+    i=0
+    while [ "$i" -lt "${#cert_advanced_env_vars[@]}" ]; do
+        set_config_var "${cert_advanced_env_vars[$i]}" \
+                       "${cert_advanced_config_vars[$i]}" \
+                       "$cert_advanced_config_service"
+        i=$(( i + 1 ))
+    done
+}
+
 # For installs we need to bring in the tar files and add in the sidecar specific details
 update_config_files () {
   echo "Updating Configuration Files..."
@@ -248,6 +294,7 @@ update_config_files () {
   # Just in case tls is disabled we'll force it enabled
   sed -i "/^tls-type:/c\tls-type: \"tls\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
+  set_advanced_config
   post_update_tasks
 }
 
@@ -257,7 +304,7 @@ disable_unsupported_services () {
   wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire"|cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
 
   for wire in "${WIRES[@]}"; do
-    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " =~ " ${wire} " ]]; then
+    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " = *" ${wire} "* ]]; then
       if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
         echo "Disabling ${wire}..."
         systemctl disable "${wire}"
