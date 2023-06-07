@@ -4,8 +4,8 @@
 
 _Added in sidecar version v4.7_
 
-To provide a custom certificate to the sidecar, include the following
-environment variables in an env file:
+To provide a custom certificate to the sidecar, you can use the following
+environment variables:
 
 ```shell
 CYRAL_SIDECAR_TLS_CERT=        # x509 TLS certificate
@@ -14,7 +14,7 @@ CYRAL_SIDECAR_CA_CERT=         # x509 CA certificate
 CYRAL_SIDECAR_CA_PRIVATE_KEY=  # private key corresponding to CA cert
 ```
 
-Provide the env file to the script with the variable `envFilePath`.
+Export the environment variables of your choice before running the script.
 
 Note that the contents of the environment variables **must be encoded in
 base64**. For instance, if your TLS certificate is:
