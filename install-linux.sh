@@ -210,7 +210,7 @@ log_detected_advanced_vars () {
     local var_names="$1"
     local var_val
     for var_name in $var_names; do
-        var_val="$(printf "${!var_name}")"
+        var_val="${!var_name}"
         if [ -n "$var_val" ]; then
             echo "Advanced config variable $var_name detected"
         fi
@@ -223,7 +223,10 @@ set_config_var () {
     local service_name="$3"
     local env_varval="${!env_varname}"
     local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
+
+    # If var is empty don't touch the config
     [ -z "$env_varval" ] && return
+
     if [ -n "$(cat "$config_fpath" | grep -E "^${config_varname}:")" ]; then
         # Variable already exists in config file, just override
         sed -i "s/^${config_varname}:.*/${config_varname}: ${env_varval}/g" \
@@ -302,7 +305,7 @@ disable_unsupported_services () {
   wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire"|cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
 
   for wire in "${WIRES[@]}"; do
-    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " =~ \ ${wire}\  ]]; then
+    if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " = *" ${wire} "* ]]; then
       if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
         echo "Disabling ${wire}..."
         systemctl disable "${wire}"
