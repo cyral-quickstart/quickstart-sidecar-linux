@@ -223,7 +223,6 @@ set_config_var () {
     local service_name="$3"
     local env_varval="${!env_varname}"
     local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
-
     # If var is empty don't touch the config
     [ -z "$env_varval" ] && return
 
