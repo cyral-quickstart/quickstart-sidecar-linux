@@ -15,6 +15,8 @@ These instructions have been fully tested on the following operating systems:
 
 > **NOTE:** This script assumes that you have superuser privileges on the target machine.
 
+---
+
 ## Install
 
 ### Requirements
@@ -101,9 +103,15 @@ between multiple instances of a sidecar vs. multiple sidecars:
   plane), then you will also need to repeat the steps above to get a
   unique Sidecar ID, Client ID, and Client Secret for each host.
 
+---
+
 ## Parameters
 
-**--local_package**: specify path to an already-downloaded Cyral sidecar RPM/DEB package, and prevent the script from downloading a new one.
+| Name            | Default Value | Description                                                                                                   |
+| --------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `local_package` | ``            | Path to an already-downloaded Cyral sidecar RPM/DEB package to prevent the script from downloading a new one. |
+
+---
 
 ## Advanced
 
