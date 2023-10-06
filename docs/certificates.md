@@ -1,6 +1,4 @@
-# Advanced configuration
-
-## Certificates
+# Configuring certificates for Linux sidecars
 
 _Added in sidecar version v4.7_
 
@@ -32,4 +30,4 @@ CYRAL_SIDECAR_TLS_CERT=LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCmFHVnNiRzhnZDI5eWJHU
 ```
 
 To learn more about sidecar certificates, visit the official Cyral docs:
-[Sidecar Certificates](https://cyral.com/docs/sidecars/sidecar-certificates).
+[Sidecar Certificates](https://cyral.com/docs/sidecars/deployment/certificates).
