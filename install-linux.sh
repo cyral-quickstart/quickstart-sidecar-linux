@@ -173,6 +173,8 @@ do_rpm_install(){
   if rpm -q cyral-sidecar > /dev/null 2>&1; then
     echo "Removing existing installation..."
     rpm -e --erase cyral-sidecar > /dev/null 2>&1
+    rm -f "$(grep "discovery-database" /etc/cyral/cyral-service-monitor/config.yaml 2>/dev/null| awk '{print $2}')"
+    rm -f /etc/cyral/conf.d/sidecar.db
   fi
   echo "Installing sidecar..."
    rpm -U --force "${INSTALL_PACKAGE}" 2>/dev/null
@@ -182,6 +184,8 @@ do_dpkg_install(){
   if dpkg -s cyral-sidecar > /dev/null 2>&1; then
     echo "Removing existing installation..."
     dpkg -r cyral-sidecar > /dev/null 2>&1
+    rm -f "$(grep "discovery-database" /etc/cyral/cyral-service-monitor/config.yaml 2>/dev/null| awk '{print $2}')"
+    rm -f /etc/cyral/conf.d/sidecar.db
   fi
   echo "Installing sidecar..."
   dpkg -i --force-all "${INSTALL_PACKAGE}" 2>/dev/null
@@ -281,6 +285,7 @@ update_config_files () {
   sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-pg-wire/config.yaml
   sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-s3-wire/config.yaml
   sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-certificate-manager/config.yaml
+  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-service-monitor/config.yaml
   sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dynamodb-wire/config.yaml
   sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
   sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
