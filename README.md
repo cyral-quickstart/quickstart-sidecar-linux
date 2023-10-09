@@ -107,7 +107,7 @@ between multiple instances of a sidecar vs. multiple sidecars:
 
 | Name            | Default Value | Description                                                                                                   |
 | --------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| `local_package` | ``            | Path to an already-downloaded Cyral sidecar RPM/DEB package to prevent the script from downloading a new one. |
+| `local_package` |               | Path to an already-downloaded Cyral sidecar RPM/DEB package to prevent the script from downloading a new one. |
 
 ---
 
