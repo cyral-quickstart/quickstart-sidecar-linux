@@ -103,9 +103,7 @@ between multiple instances of a sidecar vs. multiple sidecars:
   plane), then you will also need to repeat the steps above to get a
   unique Sidecar ID, Client ID, and Client Secret for each host.
 
----
-
-## Parameters
+### Parameters
 
 | Name            | Default Value | Description                                                                                                   |
 | --------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
