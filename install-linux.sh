@@ -11,16 +11,6 @@ get_os_type () {
   echo "$detected_os"
 }
 
-define_route () {
-  if [ "$1" = "ubuntu" ]; then
-    ROUTE="deb"
-  else
-    ROUTE="rpm"
-  fi
-
-  BINARIES_NAME=cyral-sidecar.$ROUTE
-}
-
 # This is our usage details
 print_usage () {
   echo "
@@ -139,37 +129,9 @@ get_os_major_version_id () {
   echo "$detected_version_id"
 }
 
-# Check to make sure we support the Linux version
-# For now, these are checks for known incompatible versions
-check_os_version () {
-  OS_VERSION="$(get_os_major_version_id)"
-  # Check for OracleLinux less than 8.x
-  if [ "$1" = "ol" ] && [ "$OS_VERSION" -lt 8 ]; then
-	  install_error "Unsupported OracleLinux Version: Detected Version < 8.x"
-  fi
-}
-
-# This is to perform installation tasks specific to Ubuntu / Debian
-install_ubuntu () {
-  echo "Doing an Ubuntu Install"
-  sleep 2
-  do_dpkg_install
-}
-
-# This is to perform installation tasks specific to Red Hat / CentOS
-install_rhel () {
-  echo "Doing a Red Hat Install"
-  sleep 2
-  do_rpm_install
-}
-
-install_amzn () {
-  echo "Doing a Amazon Linux Install"
-  sleep 2
-  do_rpm_install
-}
-
 do_rpm_install(){
+  get_package "rpm"
+  sleep 2
   if rpm -q cyral-sidecar > /dev/null 2>&1; then
     echo "Removing existing installation..."
     rpm -e --erase cyral-sidecar > /dev/null 2>&1
@@ -181,6 +143,8 @@ do_rpm_install(){
 }
 
 do_dpkg_install(){
+  get_package "deb"
+  sleep 2
   if dpkg -s cyral-sidecar > /dev/null 2>&1; then
     echo "Removing existing installation..."
     dpkg -r cyral-sidecar > /dev/null 2>&1
@@ -194,16 +158,26 @@ do_dpkg_install(){
 # Perform an install of the sidecar package
 do_install () {
   if [ "$1" = "rhel" ]; then
-    install_rhel
+    echo "Doing a Red Hat Install"
+    do_rpm_install
   elif [ "$1" = "ubuntu" ]; then
-    install_ubuntu
+    echo "Doing an Ubuntu Install"
+    do_dpkg_install
   elif [ "$1" = "centos" ]; then
-    install_rhel
+    echo "Doing a Centos Install"
+    do_rpm_install
   elif [ "$1" = "amzn" ]; then
-    install_amzn
-  elif [ "$1" = "ol" ]; then
-    check_os_version "$1"
-    install_rhel
+    echo "Doing a Amazon Linux Install"
+    do_rpm_install
+  elif [ "$1" = "rocky" ]; then # rocky - cent based
+    echo "Doing a Rocky Linux Install"
+    do_rpm_install
+  elif [ "$1" = "ol" ]; then # oracle
+    OS_VERSION="$(get_os_major_version_id)"
+    if [ "$OS_VERSION" -lt 8 ]; then
+	    install_error "Unsupported OracleLinux Version: Detected Version < 8.x"
+    fi
+    do_rpm_install
   else
     install_error "Unsupported Platform"
   fi
@@ -273,24 +247,37 @@ update_config_files () {
   sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
   sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-forward-proxy/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-authenticator/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-sqlserver-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-oracle-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-alerter/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dispatcher/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dremio-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mongodb-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-mysql-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-pg-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-s3-wire/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-certificate-manager/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-service-monitor/config.yaml
-  sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-dynamodb-wire/config.yaml
+
+  for config_file in /etc/cyral/*/config.yaml; do
+    sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" "$config_file"
+  done
+
   sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
   sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
 
-  sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-sidecar-exporter/config.yaml
+  
+  if [ -f "/etc/cyral/cyral-sidecar-exporter/config.yaml" ]; then
+    sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-sidecar-exporter/config.yaml
+  fi
+  
+  # Configure service monitor
+  if [ -f "/etc/cyral/cyral-service-monitor/config.yaml" ]; then
+   
+    if [ -n "$PRIMARY_IP" ]; then
+      primary_ip="$PRIMARY_IP"
+    else
+      # Attempt to get the primary IP address using hostname -I
+      if ! primary_ip=$(hostname -I | awk '{print $1}'); then
+          # If hostname -I fails, try ifconfig
+          if ! primary_ip=$(ifconfig | awk '/inet / {print $2; exit}' | cut -d':' -f2); then
+              primary_ip="No_IP"
+          fi
+      fi
+    fi
+
+    sed -i "/^instance-id:/c\instance-id: \"${primary_ip}\"" /etc/cyral/cyral-service-monitor/config.yaml
+    sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-service-monitor/config.yaml
+  fi
 
   # Fixes for multiple services using the same repo
   sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
@@ -378,6 +365,16 @@ generate_post_data () {
   "controlPlaneHost":"$CYRAL_CONTROL_PLANE"}
 }
 EOF
+}
+
+get_package () {
+  if [ -z "$INSTALL_PACKAGE" ] ; then
+  ROUTE=$1
+  BINARIES_NAME=cyral-sidecar.$ROUTE
+  download_package
+  else
+    echo "Using provided package $INSTALL_PACKAGE"
+  fi
 }
 
 download_package () {
@@ -482,7 +479,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 OS_TYPE="$(get_os_type)"
-define_route "$OS_TYPE"
+
 
 # Handle the arguments that were provided
 while test $# -gt 0; do
@@ -498,8 +495,6 @@ done
 
 get_config
 
-if [ -z "$INSTALL_PACKAGE" ] ; then
-  download_package
-fi
+
 
 do_install "$OS_TYPE"
