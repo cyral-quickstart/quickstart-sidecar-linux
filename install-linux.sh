@@ -263,8 +263,8 @@ update_config_files () {
   # Configure service monitor
   if [ -f "/etc/cyral/cyral-service-monitor/config.yaml" ]; then
    
-    if [ -n "$PRIMARY_IP" ]; then
-      primary_ip="$PRIMARY_IP"
+    if [ -n "$SIDECAR_INSTANCE_ID" ]; then
+      primary_ip="$SIDECAR_INSTANCE_ID"
     else
       # Attempt to get the primary IP address using hostname -I
       if ! primary_ip=$(hostname -I | awk '{print $1}'); then
@@ -276,12 +276,17 @@ update_config_files () {
     fi
 
     sed -i "/^instance-id:/c\instance-id: \"${primary_ip}\"" /etc/cyral/cyral-service-monitor/config.yaml
-    sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-service-monitor/config.yaml
+    sed -i "/^deployed-version:/c\deployed-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-service-monitor/config.yaml
   fi
 
   # Fixes for multiple services using the same repo
-  sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
-  sed -i "/^metrics-port:/c\metrics-port: 9024" /etc/cyral/cyral-s3-wire/config.yaml
+  if [ -f "/etc/cyral/cyral-dynamodb-wire/config.yaml" ]; then
+    sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
+  fi
+  
+  if [ -f "/etc/cyral/cyral-s3-wire/config.yaml" ]; then
+    sed -i "/^metrics-port:/c\metrics-port: 9024" /etc/cyral/cyral-s3-wire/config.yaml
+  fi
 
   # Just in case tls is disabled we'll force it enabled
   sed -i "/^tls-type:/c\tls-type: \"tls\"" /etc/cyral/cyral-forward-proxy/config.yaml
@@ -404,7 +409,7 @@ download_package () {
     echo "Error: Status code $DOWNLOAD_STATUS when downloading binaries"
     exit 1
   else
-    echo "Binaries were downloaded correctly."
+    echo "Binaries were successfully downloaded."
   fi
   INSTALL_PACKAGE=$BINARIES_NAME
 }
