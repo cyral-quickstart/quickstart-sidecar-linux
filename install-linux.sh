@@ -93,35 +93,6 @@ install_error () {
   exit 2
 }
 
-pre_update_tasks () { # double check echos   
-  # We need some additional configuration values in the exporter config.yaml
-  if ! grep -q sidecar-id /etc/cyral/cyral-sidecar-exporter/config.yaml; then
-    echo "sidecar-id:" >> /etc/cyral/cyral-sidecar-exporter/config.yaml
-  fi
-  
-  if ! grep -q controlplane-host /etc/cyral/cyral-sidecar-exporter/config.yaml; then
-    echo "controlplane-host: localhost" >> /etc/cyral/cyral-sidecar-exporter/config.yaml
-  fi
-  
-  if ! grep -q controlplane-port /etc/cyral/cyral-sidecar-exporter/config.yaml; then
-    echo "controlplane-port: 8068" >> /etc/cyral/cyral-sidecar-exporter/config.yaml
-  fi
-
-}
-
-post_update_tasks () { 
-  # The port is wrong here so it needs to be corrected
-  sed -i "s/8050/8069/" /etc/default/cyral-push-client
-
-  # We need to add a sleep in the push proxy service file so it doesn't come up before the forward proxy connects
-  # TODO :: Figure out proper way to do this in the push-client repo
-  sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 60\"" /usr/lib/systemd/system/cyral-push-client.service
-
-  # Making sure we add in our file descriptor limits to the wires and dispatcher - ENG-8504
-  sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-dispatcher.service
-  sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-*wire.service
-}
-
 # This is to check the /etc/ directory for any "release" related files to find the Linux distribution version
 get_os_major_version_id () {
   local detected_version_id
@@ -239,7 +210,32 @@ update_config_files () {
 
   local META_STRING="\{${SPECIAL_QUOTE}clientId${SPECIAL_QUOTE}:${SPECIAL_QUOTE}${CYRAL_SIDECAR_CLIENT_ID_CLEAN}${SPECIAL_QUOTE},${SPECIAL_QUOTE}clientSecret${SPECIAL_QUOTE}:${SPECIAL_QUOTE}${CYRAL_SIDECAR_CLIENT_SECRET}${SPECIAL_QUOTE}\}"
 
-  pre_update_tasks
+  seconfig="/etc/cyral/cyral-sidecar-exporter/config.yaml"
+  if [ -f "$seconfig" ]; then
+    # We need to remove the CYRAL_SIDECAR_EXPORTER_ from the beginning of the env vars in cyral-sidecar-exporter
+    sed -i "s/^CYRAL_SIDECAR_EXPORTER_//" /etc/default/cyral-sidecar-exporter
+    sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
+
+    sed -i "s/^controlplane_host:/controlplane-host:/" "$seconfig"
+    sed -i "s/^controlplane_port:/controlplane-port:/" "$seconfig"
+
+    if ! grep -q sidecar-id "$seconfig"; then
+      echo "sidecar-id:" >> "$seconfig"
+    fi
+    
+    if ! grep -q controlplane-host "$seconfig"; then
+      echo "controlplane-host: localhost" >> "$seconfig"
+    fi
+    
+    if ! grep -q controlplane-port "$seconfig"; then
+      echo "controlplane-port: 8068" >> "$seconfig"
+    fi
+    sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" "$seconfig"
+  fi
+  
+  # Forward Proxy Config
+  # Just in case tls is disabled we'll force it enabled
+  sed -i "/^tls-type:/c\tls-type: \"tls\"" /etc/cyral/cyral-forward-proxy/config.yaml
   sed -i "/^secret-manager-type:/c\secret-manager-type: \"direct\"" /etc/cyral/cyral-forward-proxy/config.yaml
   sed -i "/^secret-manager-meta:/c\secret-manager-meta: \"${META_STRING}\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
@@ -247,52 +243,56 @@ update_config_files () {
   sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
   sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
-
+  # apply to all
   for config_file in /etc/cyral/*/config.yaml; do
     sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" "$config_file"
   done
 
-  sed -i "/^SIDECAR_ID=/c\SIDECAR_ID=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-sidecar-exporter
-  sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
+  # Push Client Config
+  if [ -f "/etc/default/cyral-push-client" ]; then
+    sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 30\"" /usr/lib/systemd/system/cyral-push-client.service
+    sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 60\"" /usr/lib/systemd/system/cyral-push-client.service
+    # We need to get rid of the CYRAL_PUSH_CLIENT_STORAGE_ from push-client
+    sed -i "s/^CYRAL_PUSH_CLIENT_STORAGE_//" /etc/default/cyral-push-client
+    sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
+     # fix legacy ports
+    sed -i "s/8050/8069/" /etc/default/cyral-push-client
 
-  
-  if [ -f "/etc/cyral/cyral-sidecar-exporter/config.yaml" ]; then
-    sed -i "/^sidecar-version:/c\sidecar-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-sidecar-exporter/config.yaml
   fi
-  
-  # Configure service monitor
+    
+  # Service Monitor Config
   if [ -f "/etc/cyral/cyral-service-monitor/config.yaml" ]; then
    
     if [ -n "$SIDECAR_INSTANCE_ID" ]; then
-      primary_ip="$SIDECAR_INSTANCE_ID"
+      instance_id="$SIDECAR_INSTANCE_ID"
     else
       # Attempt to get the primary IP address using hostname -I
-      if ! primary_ip=$(hostname -I | awk '{print $1}'); then
+      if ! instance_id=$(hostname -I | awk '{print $1}'); then
           # If hostname -I fails, try ifconfig
-          if ! primary_ip=$(ifconfig | awk '/inet / {print $2; exit}' | cut -d':' -f2); then
-              primary_ip="No_IP"
+          if ! instance_id=$(ifconfig | awk '/inet / {print $2; exit}' | cut -d':' -f2); then
+              instance_id="No_IP"
           fi
       fi
     fi
 
-    sed -i "/^instance-id:/c\instance-id: \"${primary_ip}\"" /etc/cyral/cyral-service-monitor/config.yaml
+    sed -i "/^instance-id:/c\instance-id: \"${instance_id}\"" /etc/cyral/cyral-service-monitor/config.yaml
     sed -i "/^deployed-version:/c\deployed-version: \"${CYRAL_SIDECAR_VERSION}\"" /etc/cyral/cyral-service-monitor/config.yaml
   fi
 
+  # Wire Specific additional configs
   # Fixes for multiple services using the same repo
   if [ -f "/etc/cyral/cyral-dynamodb-wire/config.yaml" ]; then
     sed -i "/^metrics-port:/c\metrics-port: 9038" /etc/cyral/cyral-dynamodb-wire/config.yaml
   fi
-  
+
   if [ -f "/etc/cyral/cyral-s3-wire/config.yaml" ]; then
     sed -i "/^metrics-port:/c\metrics-port: 9024" /etc/cyral/cyral-s3-wire/config.yaml
   fi
-
-  # Just in case tls is disabled we'll force it enabled
-  sed -i "/^tls-type:/c\tls-type: \"tls\"" /etc/cyral/cyral-forward-proxy/config.yaml
-
+  # Making sure we add in our file descriptor limits to the wires and dispatcher - ENG-8504
+  sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-*wire.service
+  sed -i '/^\[Service\]/a LimitNOFILE=65535' /usr/lib/systemd/system/cyral-dispatcher.service
   set_advanced_config
-  post_update_tasks
+
 }
 
 disable_unsupported_services () {
@@ -326,27 +326,9 @@ restart_services () {
   (cd /;systemctl restart cyral-*) # without this it will use the filenames local to it
 }
 
-# TODO :: Remove this once Epic complete
-pre_epic_tasks () {
-  # We need to remove the CYRAL_SIDECAR_EXPORTER_ from the beginning of the env vars in cyral-sidecar-exporter
-  sed -i "s/^CYRAL_SIDECAR_EXPORTER_//" /etc/default/cyral-sidecar-exporter
-
-  # We need to add a sleep in the push proxy service file so it doesn't come up before the forward proxy connects
-  # TODO :: Figure out proper way to do this in the push-client repo
-  sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 30\"" /usr/lib/systemd/system/cyral-push-client.service
-
-  # Need to fix the variable for control plane host and port Ref, ENG-7352
-  sed -i "s/^controlplane_host:/controlplane-host:/" /etc/cyral/cyral-sidecar-exporter/config.yaml
-  sed -i "s/^controlplane_port:/controlplane-port:/" /etc/cyral/cyral-sidecar-exporter/config.yaml
-
-  # We need to get rid of the CYRAL_PUSH_CLIENT_STORAGE_ from push-client
-  sed -i "s/^CYRAL_PUSH_CLIENT_STORAGE_//" /etc/default/cyral-push-client
-}
-
 # Perform all Post Installation Tasks
 do_post_install () {
   echo "Running Post Install Tasks..."
-  pre_epic_tasks
   if [ -n "$CYRAL_REPOSITORIES_SUPPORTED" ]; then
     disable_unsupported_services
   fi
@@ -499,7 +481,4 @@ while test $# -gt 0; do
 done
 
 get_config
-
-
-
 do_install "$OS_TYPE"
