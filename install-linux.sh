@@ -333,6 +333,7 @@ do_post_install () {
     disable_unsupported_services
   fi
   update_config_files
+  sleep 3 # some os's (ubuntu) seem to have a problem if this is too quick
   restart_services
 }
 
