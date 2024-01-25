@@ -386,7 +386,7 @@ download_package () {
   fi
 
   echo "Downloading the binaries"
-  DOWNLOAD_STATUS=$(curl --write-out "%{http_code}" "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/templates/download/$ROUTE/$CYRAL_SIDECAR_VERSION" -H "authorization: Bearer $ACCESS_TOKEN" --output $BINARIES_NAME)
+  DOWNLOAD_STATUS=$(curl --write-out "%{http_code}" "public.cyral.com/packages/$CYRAL_SIDECAR_VERSION/x86-64/$ROUTE/sidecar.$ROUTE" --output $BINARIES_NAME)
   
   if [[ "$DOWNLOAD_STATUS" -ne 200 ]] ; then
     echo "Error: Status code $DOWNLOAD_STATUS when downloading binaries"
