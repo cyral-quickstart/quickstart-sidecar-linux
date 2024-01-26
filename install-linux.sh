@@ -366,34 +366,41 @@ get_package () {
 }
 
 download_package () {
-  echo "Getting access to the Control Plane"
-  
-  if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
-    #attempt with previous ports
-    CYRAL_CONTROL_PLANE_HTTPS_PORT=8000
-    CYRAL_CONTROL_PLANE_GRPC_PORT=9080
-    if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
-      echo "Failed to retrieve control plane token."
-      echo "$TOKEN"
-      exit 1
-    fi
-  fi
-
-  ACCESS_TOKEN=$(echo "$TOKEN" | jq -r .access_token)
-  if [[ -z "$ACCESS_TOKEN" ]] ; then
-    echo "Error: Could not connect to the Control Plane. Check CYRAL_SIDECAR_CLIENT_ID and CYRAL_SIDECAR_CLIENT_SECRET and try again"
-    exit 1
-  fi
-
   echo "Downloading the binaries"
+
   DOWNLOAD_STATUS=$(curl --write-out "%{http_code}" "public.cyral.com/packages/$CYRAL_SIDECAR_VERSION/x86-64/$ROUTE/sidecar.$ROUTE" --output $BINARIES_NAME)
   
   if [[ "$DOWNLOAD_STATUS" -ne 200 ]] ; then
-    echo "Error: Status code $DOWNLOAD_STATUS when downloading binaries"
-    exit 1
-  else
-    echo "Binaries were successfully downloaded."
+    echo "Couldn't find binaries in public location. Status code $DOWNLOAD_STATUS when downloading binaries. Using Control Plane instead."
+
+    echo "Getting access to the Control Plane"
+    
+    if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
+      #attempt with previous ports
+      CYRAL_CONTROL_PLANE_HTTPS_PORT=8000
+      CYRAL_CONTROL_PLANE_GRPC_PORT=9080
+      if ! TOKEN=$(curl --fail --silent --request POST "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token" -d grant_type=client_credentials -d client_id="$CYRAL_SIDECAR_CLIENT_ID" -d client_secret="$CYRAL_SIDECAR_CLIENT_SECRET" 2>&1) ; then
+        echo "Failed to retrieve control plane token."
+        echo "$TOKEN"
+        exit 1
+      fi
+    fi
+
+    ACCESS_TOKEN=$(echo "$TOKEN" | jq -r .access_token)
+    if [[ -z "$ACCESS_TOKEN" ]] ; then
+      echo "Error: Could not connect to the Control Plane. Check CYRAL_SIDECAR_CLIENT_ID and CYRAL_SIDECAR_CLIENT_SECRET and try again"
+      exit 1
+    fi
+
+    echo "Downloading the binaries via Control Plane"
+    DOWNLOAD_STATUS=$(curl --write-out "%{http_code}" "https://$CYRAL_CONTROL_PLANE:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/templates/download/$ROUTE/$CYRAL_SIDECAR_VERSION" -H "authorization: Bearer $ACCESS_TOKEN" --output $BINARIES_NAME)
+    
+    if [[ "$DOWNLOAD_STATUS" -ne 200 ]] ; then
+      echo "Error: Status code $DOWNLOAD_STATUS when downloading binaries"
+      exit 1
+    fi
   fi
+  echo "Binaries were successfully downloaded."
   INSTALL_PACKAGE=$BINARIES_NAME
 }
 
