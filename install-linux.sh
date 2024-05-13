@@ -248,6 +248,12 @@ update_config_files () {
     sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" "$config_file"
   done
 
+  # Dispatcher Certificate configuration
+  sed -i "/^certs-directory:/c\certs-directory: \"${CYRAL_SIDECAR_CERT_DIRECTORY:-/etc/cyral/cyral-certificate-manager/bundles}\"" /etc/cyral/cyral-dispatcher/config.yaml
+  sed -i "/^cert-filename:/c\cert-filename: \"${CYRAL_SIDECAR_TLS_CERT:-cert-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
+  sed -i "/^cert-key-filename:/c\cert-key-filename: \"${CYRAL_SIDECAR_TLS_PRIVATE_KEY:-key-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
+  sed -i "/^ca-filename:/c\ca-filename: \"${CYRAL_SIDECAR_CA_CERT:-cert-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
+
   # Push Client Config
   if [ -f "/etc/default/cyral-push-client" ]; then
     sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 30\"" /usr/lib/systemd/system/cyral-push-client.service

@@ -8,8 +8,8 @@ environment variables:
 ```shell
 CYRAL_SIDECAR_TLS_CERT=        # x509 TLS certificate
 CYRAL_SIDECAR_TLS_PRIVATE_KEY= # private key corresponding to TLS cert
-CYRAL_SIDECAR_CA_CERT=         # x509 CA certificate
-CYRAL_SIDECAR_CA_PRIVATE_KEY=  # private key corresponding to CA cert
+CYRAL_SIDECAR_CA_CERT=         # CA Cert for TLS
+CYRAL_SIDECAR_CERT_DIRECTORY=  # Directory for cert storage, defaults to /etc/cyral/cyral-certificate-manager/bundles
 ```
 
 Export the environment variables of your choice before running the script.
