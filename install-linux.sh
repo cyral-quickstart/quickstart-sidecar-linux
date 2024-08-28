@@ -329,7 +329,8 @@ disable_unsupported_services () {
 restart_services () {
   # We need to reload any of our changes to the systemd files before restarting
   systemctl daemon-reload
-  systemctl list-unit-files | grep 'cyral-' | awk '{print $1}' | xargs -r systemctl restart
+  systemctl list-unit-files | grep 'cyral-' | grep enabled | awk '{print $1}' | xargs -r systemctl restart
+  systemctl list-unit-files | grep 'cyral-' | grep disabled | awk '{print $1}' | xargs -r systemctl stop
 }
 
 # Perform all Post Installation Tasks
