@@ -103,8 +103,10 @@ get_os_major_version_id () {
 do_rpm_install(){
   get_package "rpm"
   sleep 2
-  if rpm -q sidecar > /dev/null 2>&1; then
+  if rpm -q cyral-sidecar > /dev/null 2>&1 || rpm -q sidecar > /dev/null 2>&1; then
     echo "Removing existing installation..."
+    # Split this call in 2 because rpm wont uninstall any package if one or more dont exist
+    rpm -e --erase cyral-sidecar > /dev/null 2>&1
     rpm -e --erase sidecar > /dev/null 2>&1
     rm -f "$(grep "discovery-database" /etc/cyral/cyral-service-monitor/config.yaml 2>/dev/null| awk '{print $2}')"
     rm -f /etc/cyral/conf.d/sidecar.db
@@ -116,9 +118,9 @@ do_rpm_install(){
 do_dpkg_install(){
   get_package "deb"
   sleep 2
-  if dpkg -s sidecar > /dev/null 2>&1; then
+  if dpkg -s cyral-sidecar > /dev/null 2>&1 || dpkg -s sidecar > /dev/null 2>&1; then
     echo "Removing existing installation..."
-    dpkg -r sidecar > /dev/null 2>&1
+    dpkg -r cyral-sidecar sidecar > /dev/null 2>&1
     rm -f "$(grep "discovery-database" /etc/cyral/cyral-service-monitor/config.yaml 2>/dev/null| awk '{print $2}')"
     rm -f /etc/cyral/conf.d/sidecar.db
   fi
