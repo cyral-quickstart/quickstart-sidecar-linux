@@ -3,7 +3,8 @@
 CYRAL_CONTROL_PLANE_HTTPS_PORT=443
 CYRAL_CONTROL_PLANE_GRPC_PORT=443
 CYRAL_STORAGE_MANAGER_PORT=8020
-CYRAL_STORAGE_MANAGER_IGNORED_CONFIGS=""
+CYRAL_STORAGE_MANAGER_IGNORED_CONFIGS="storage-manager log-shipper"
+CYRAL_STORAGE_MANAGER_PROXY_ENABLED="${CYRAL_STORAGE_MANAGER_PROXY_ENABLED:-true}"
 NL=$'\n'
 
 get_os_type() {
@@ -339,6 +340,11 @@ disable_unsupported_services() {
 			fi
 		fi
 	done
+
+	if [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" != "true" ]]; then
+		echo "Disabling storage manager proxy"
+		systemctl disable "cyral-storage-manager"
+	fi
 }
 
 # After performing everything we need to restart the cyral services
