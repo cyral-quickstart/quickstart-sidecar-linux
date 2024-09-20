@@ -175,8 +175,8 @@ log_detected_advanced_vars() {
 
 set_config() {
 	local var_name="$1"
-	local service_name="$2"
-	local var_val="$3"
+	local var_val="$2"
+	local service_name="$3"
 	local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
 
 	if grep -q "^${var_name}:" <"$config_fpath"; then
@@ -324,15 +324,27 @@ update_config_files() {
 
 	# Configuring storage proxy when it's available
 	if command -v /opt/cyral/bin/cyral-storage-manager && [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" == "true" ]]; then
+		echo "Configuring proxy variables for storage manager"
 		for config in /etc/cyral/**/config.yaml; do
 			service_name=$(dirname "$config" | xargs basename)
 			service_name="${service_name#cyral-}"
 			if ! contains "$CYRAL_STORAGE_MANAGER_IGNORED_CONFIGS" "$service_name"; then
-				set_config_var "storage-endpoints" "[localhost:${CYRAL_STORAGE_MANAGER_PORT}]" "$service_name"
+				set_config "storage-endpoints" "[localhost:${CYRAL_STORAGE_MANAGER_PORT}]" "$service_name"
 			fi
 		done
 
-		set_config_var
+		echo "Configuring storage manager to act as proxy"
+		set_config "proxy" "true" "storage-manager"
+		set_config "is-sidecar-service" "true" "storage-manager"
+		set_config "http-port" "0" "storage-manager"
+		set_config "grpc-port" "8090" "storage-manager"
+		set_config "metrics-port" "9040" "storage-manager"
+		set_config "storage-endpoints" "[localhost:8068]" "storage-manager"
+		set_config "log-level" "info" "storage-manager"
+		set_config "listen-host" "127.0.0.1" "storage-manager"
+		set_config "service-name" "storage-proxy" "storage-manager"
+		set_config "sidecar-version" "${CYRAL_SIDECAR_VERSION}" "storage-manager"
+		set_config "sidecar-instance-id" "${instance_id}" "storage-manager"
 	fi
 }
 
