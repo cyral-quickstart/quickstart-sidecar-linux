@@ -194,18 +194,10 @@ set_config_var() {
 	local config_varname="$2"
 	local service_name="$3"
 	local env_varval="${!env_varname}"
-	local config_fpath="/etc/cyral/cyral-${service_name}/config.yaml"
 	# If var is empty don't touch the config
 	[ -z "$env_varval" ] && return
 
-	if grep -q "^${config_varname}:" <"$config_fpath"; then
-		# Variable already exists in config file, just override
-		sed -i "s/^${config_varname}:.*/${config_varname}: ${env_varval}/g" \
-			"$config_fpath"
-	else
-		# Variable does not exist, append it to config file
-		printf "%s: %s\n" "${config_varname}" "${env_varval}" >>"$config_fpath"
-	fi
+	set_config "$config_varname" "$env_varval" "$service_name"
 }
 
 set_advanced_config() {
