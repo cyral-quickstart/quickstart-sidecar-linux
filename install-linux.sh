@@ -333,6 +333,9 @@ update_config_files() {
 			fi
 		done
 
+		# service monitor has different parsing for storage endpoints
+		set_config "storage-endpoints" "localhost:${CYRAL_STORAGE_MANAGER_PORT}" "service-monitor"
+
 		echo "Configuring storage manager to act as proxy"
 		set_config "proxy" "true" "storage-manager"
 		set_config "is-sidecar-service" "true" "storage-manager"
