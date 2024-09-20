@@ -307,7 +307,7 @@ update_config_files() {
 	set_advanced_config
 
 	# Configuring storage proxy when it's available
-	if command -v /etc/cyral/bin/storage-manager && [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" == "true" ]]; then
+	if command -v /etc/cyral/bin/cyral-storage-manager && [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" == "true" ]]; then
 		for config in /etc/cyral/**/config.yaml; do
 			service_name=$(dirname "$config" | xargs basename)
 			service_name="${service_name#cyral-}"
