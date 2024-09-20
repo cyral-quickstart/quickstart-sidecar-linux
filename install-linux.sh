@@ -13,6 +13,7 @@ get_os_type() {
 	echo "$detected_os"
 }
 
+# contains checks if a word exists in a space separated list of words
 contains() {
 	[[ $1 =~ (^|[[:space:]])$2($|[[:space:]]) ]]
 }
