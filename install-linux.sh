@@ -354,7 +354,9 @@ disable_unsupported_services() {
 			if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
 				echo "Disabling ${wire}..."
 				systemctl disable "${wire}"
-				/etc/cyral/bin/cyral-discovery unregister "${wire}"
+				if command /etc/cyral/bin/cyral-discovery; then
+					/etc/cyral/bin/cyral-discovery unregister "${wire}"
+				fi
 			else
 				echo "already disabled $wire"
 			fi
