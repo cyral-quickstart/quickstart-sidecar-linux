@@ -383,7 +383,7 @@ cleanup_local_registry() {
 	for wire in "${WIRES[@]}"; do
 		if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " == *" ${wire} "* ]]; then
 			if command -v /opt/cyral/bin/cyral-local-discovery-cli; then
-				/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
+				/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire#cyral-}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
 			fi
 		fi
 	done
