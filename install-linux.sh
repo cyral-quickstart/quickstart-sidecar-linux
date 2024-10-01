@@ -388,7 +388,7 @@ cleanup_local_registry() {
 		done
 
 		if [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" != "true" ]]; then
-			/opt/cyral/bin/cyral-local-discovery-cli unregister "storage-proxy" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
+			/opt/cyral/bin/cyral-local-discovery-cli unregister "storage-proxy" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET" || echo "Warning: Unable to unregister storage proxy, sidecar might report as degraded."
 		fi
 	fi
 }
