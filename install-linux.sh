@@ -5,6 +5,9 @@ CYRAL_CONTROL_PLANE_GRPC_PORT=443
 CYRAL_STORAGE_MANAGER_PORT=8090
 CYRAL_STORAGE_MANAGER_IGNORED_CONFIGS="storage-manager log-shipper"
 CYRAL_STORAGE_MANAGER_PROXY_ENABLED="${CYRAL_STORAGE_MANAGER_PROXY_ENABLED:-true}"
+
+CYRAL_REGISTRY_DATABASE="${CYRAL_REGISTRY_DATABASE:-/etc/cyral/conf.d/sidecar.db}"
+CYRAL_REGISTRY_BUCKET="${CYRAL_REGISTRY_BUCKET:-service\-registry}"
 NL=$'\n'
 
 get_os_type() {
@@ -354,8 +357,8 @@ disable_unsupported_services() {
 			if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
 				echo "Disabling ${wire}..."
 				systemctl disable "${wire}"
-				if command /etc/cyral/bin/cyral-discovery; then
-					/etc/cyral/bin/cyral-discovery unregister "${wire}"
+				if command -v /opt/cyral/bin/cyral-local-discovery-cli; then
+					/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
 				fi
 			else
 				echo "already disabled $wire"
