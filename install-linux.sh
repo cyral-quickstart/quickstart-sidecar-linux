@@ -357,9 +357,6 @@ disable_unsupported_services() {
 			if [[ $(systemctl is-enabled "${wire}") == "enabled" ]]; then
 				echo "Disabling ${wire}..."
 				systemctl disable "${wire}"
-				if command -v /opt/cyral/bin/cyral-local-discovery-cli; then
-					/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
-				fi
 			else
 				echo "already disabled $wire"
 			fi
@@ -379,6 +376,19 @@ disable_unsupported_services() {
 	fi
 }
 
+cleanup_local_registry() {
+	echo "Cleaning up local registry"
+	readarray -t WIRES < <(find /etc/cyral/ -type d -name "*-wire" -printf "%f\n")
+	wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire" | cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
+	for wire in "${WIRES[@]}"; do
+		if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " == *" ${wire} "* ]]; then
+			if command -v /opt/cyral/bin/cyral-local-discovery-cli; then
+				/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
+			fi
+		fi
+	done
+}
+
 # After performing everything we need to restart the cyral services
 restart_services() {
 	# We need to reload any of our changes to the systemd files before restarting
@@ -396,6 +406,7 @@ do_post_install() {
 	update_config_files
 	sleep 3 # some os's (ubuntu) seem to have a problem if this is too quick
 	restart_services
+	cleanup_local_registry
 }
 
 get_argument_value() {
