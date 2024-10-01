@@ -377,16 +377,20 @@ disable_unsupported_services() {
 }
 
 cleanup_local_registry() {
-	echo "Cleaning up local registry"
-	readarray -t WIRES < <(find /etc/cyral/ -type d -name "*-wire" -printf "%f\n")
-	wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire" | cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
-	for wire in "${WIRES[@]}"; do
-		if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " == *" ${wire} "* ]]; then
-			if command -v /opt/cyral/bin/cyral-local-discovery-cli &>/dev/null; then
+	if command -v /opt/cyral/bin/cyral-local-discovery-cli &>/dev/null; then
+		echo "Cleaning up local registry"
+		readarray -t WIRES < <(find /etc/cyral/ -type d -name "*-wire" -printf "%f\n")
+		wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire" | cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
+		for wire in "${WIRES[@]}"; do
+			if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " == *" ${wire} "* ]]; then
 				/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire#cyral-}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
 			fi
+		done
+
+		if [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" != "true" ]]; then
+			/opt/cyral/bin/cyral-local-discovery-cli unregister "storage-proxy" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
 		fi
-	done
+	fi
 }
 
 # After performing everything we need to restart the cyral services
