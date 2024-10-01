@@ -5,6 +5,9 @@ CYRAL_CONTROL_PLANE_GRPC_PORT=443
 CYRAL_STORAGE_MANAGER_PORT=8090
 CYRAL_STORAGE_MANAGER_IGNORED_CONFIGS="storage-manager log-shipper"
 CYRAL_STORAGE_MANAGER_PROXY_ENABLED="${CYRAL_STORAGE_MANAGER_PROXY_ENABLED:-true}"
+
+CYRAL_REGISTRY_DATABASE="/etc/cyral/conf.d/sidecar.db"
+CYRAL_REGISTRY_BUCKET="service-registry"
 NL=$'\n'
 
 get_os_type() {
@@ -373,6 +376,23 @@ disable_unsupported_services() {
 	fi
 }
 
+cleanup_local_registry() {
+	if command -v /opt/cyral/bin/cyral-local-discovery-cli &>/dev/null; then
+		echo "Cleaning up local registry"
+		readarray -t WIRES < <(find /etc/cyral/ -type d -name "*-wire" -printf "%f\n")
+		wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire" | cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
+		for wire in "${WIRES[@]}"; do
+			if [[ -n "$wires_to_disable" ]] && [[ " ${wires_to_disable} " == *" ${wire} "* ]]; then
+				/opt/cyral/bin/cyral-local-discovery-cli unregister "${wire#cyral-}" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET"
+			fi
+		done
+
+		if [[ "$CYRAL_STORAGE_MANAGER_PROXY_ENABLED" != "true" ]]; then
+			/opt/cyral/bin/cyral-local-discovery-cli unregister "storage-proxy" --db "$CYRAL_REGISTRY_DATABASE" --bucket "$CYRAL_REGISTRY_BUCKET" 2>/dev/null || true
+		fi
+	fi
+}
+
 # After performing everything we need to restart the cyral services
 restart_services() {
 	# We need to reload any of our changes to the systemd files before restarting
@@ -390,6 +410,7 @@ do_post_install() {
 	update_config_files
 	sleep 3 # some os's (ubuntu) seem to have a problem if this is too quick
 	restart_services
+	cleanup_local_registry
 }
 
 get_argument_value() {
