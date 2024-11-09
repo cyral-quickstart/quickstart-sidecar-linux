@@ -378,7 +378,7 @@ disable_unsupported_services() {
 
 cleanup_local_registry() {
 	if command -v /opt/cyral/bin/cyral-local-discovery-cli &>/dev/null; then
- 		if [[ -n "CYRAL_REPOSITORIES_SUPPORTED" ]]; then
+ 		if [[ -n "$CYRAL_REPOSITORIES_SUPPORTED" ]]; then
 			echo "Cleaning up local registry"
 			readarray -t WIRES < <(find /etc/cyral/ -type d -name "*-wire" -printf "%f\n")
 			wires_to_disable=$(for wire in "${WIRES[@]}"; do if [[ ! "$CYRAL_REPOSITORIES_SUPPORTED" =~ $(echo "$wire" | cut -d- -f2) ]]; then echo -n "$wire "; fi; done)
