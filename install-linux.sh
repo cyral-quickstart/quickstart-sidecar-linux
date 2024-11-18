@@ -273,7 +273,17 @@ update_config_files() {
 	sed -i "/^cert-key-filename:/c\cert-key-filename: \"${CYRAL_SIDECAR_TLS_PRIVATE_KEY:-key-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
 	sed -i "/^ca-filename:/c\ca-filename: \"${CYRAL_SIDECAR_CA_CERT:-cert-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
 
-	# Push Client Config
+	# In some sidecar versions the push-client config may not exist, thus we manually create it here:
+	if [ ! -f "/etc/default/cyral-push-client" ]; then
+		cat > /etc/default/cyral-push-client <<EOF
+CYRAL_PUSH_CLIENT_FQDN="${CYRAL_SIDECAR_ID}"
+CYRAL_PUSH_CLIENT_PROXY_URL=http://localhost:8069
+ENDPOINTS=['localhost:8068']
+TIMEOUT=5
+EOF
+	fi
+
+	# In order versions the file may exist referencing older configs that need to update updated:
 	if [ -f "/etc/default/cyral-push-client" ]; then
 		sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 30\"" /usr/lib/systemd/system/cyral-push-client.service
 		sed -i "/^ExecStartPre=/c\ExecStartPre=/bin/sh -c \"/bin/touch /var/log/cyral/cyral-push-client.log;/bin/sleep 60\"" /usr/lib/systemd/system/cyral-push-client.service
@@ -282,7 +292,6 @@ update_config_files() {
 		sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
 		# fix legacy ports
 		sed -i "s/8050/8069/" /etc/default/cyral-push-client
-
 	fi
 
 	# Service Monitor Config
