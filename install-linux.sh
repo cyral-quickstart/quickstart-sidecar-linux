@@ -282,7 +282,13 @@ update_config_files() {
 		sed -i "/^CYRAL_PUSH_CLIENT_FQDN=/c\CYRAL_PUSH_CLIENT_FQDN=\"${CYRAL_SIDECAR_ID}\"" /etc/default/cyral-push-client
 		# fix legacy ports
 		sed -i "s/8050/8069/" /etc/default/cyral-push-client
-
+	else
+	cat > /etc/default/cyral-push-client <<EOF
+CYRAL_PUSH_CLIENT_FQDN="${CYRAL_SIDECAR_ID}"
+CYRAL_PUSH_CLIENT_PROXY_URL=http://localhost:8069
+ENDPOINTS=['localhost:8068']
+TIMEOUT=5
+EOF
 	fi
 
 	# Service Monitor Config
