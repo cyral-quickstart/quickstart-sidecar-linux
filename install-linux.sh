@@ -262,6 +262,9 @@ update_config_files() {
 	sed -i "/^http-gateway-address:/c\http-gateway-address: \"${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT\"" /etc/cyral/cyral-forward-proxy/config.yaml
 	sed -i "/^token-url:/c\token-url: \"https://${CYRAL_CONTROL_PLANE}:$CYRAL_CONTROL_PLANE_HTTPS_PORT/v1/users/oidc/token\"" /etc/cyral/cyral-forward-proxy/config.yaml
 
+	# Push client config
+	sed -i "/^fqdn:/c\fqdn: \"${CYRAL_SIDECAR_ID}\"" /etc/cyral/cyral-push-client/config.yaml
+
 	# apply to all
 	for config_file in /etc/cyral/*/config.yaml; do
 		sed -i "/^sidecar-id:/c\sidecar-id: \"${CYRAL_SIDECAR_ID}\"" "$config_file"
@@ -273,13 +276,12 @@ update_config_files() {
 	sed -i "/^cert-key-filename:/c\cert-key-filename: \"${CYRAL_SIDECAR_TLS_PRIVATE_KEY:-key-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
 	sed -i "/^ca-filename:/c\ca-filename: \"${CYRAL_SIDECAR_CA_CERT:-cert-tls.pem}\"" /etc/cyral/cyral-dispatcher/config.yaml
 
-	# In some sidecar versions the push-client config may not exist, thus we manually create it here:
+	# In some sidecar versions the push-client config may not exist, thus manually create it.
+	# This code can be removed after all sidecars are upgraded to v4.18 or later.
 	if [ ! -f "/etc/default/cyral-push-client" ]; then
 		cat > /etc/default/cyral-push-client <<EOF
 CYRAL_PUSH_CLIENT_FQDN="${CYRAL_SIDECAR_ID}"
 CYRAL_PUSH_CLIENT_PROXY_URL=http://localhost:8069
-ENDPOINTS=['localhost:8068']
-TIMEOUT=5
 EOF
 	fi
 

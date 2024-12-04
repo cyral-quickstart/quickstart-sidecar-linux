@@ -38,7 +38,7 @@ installed on the target machine.
 from the `Cyral Templates` option in the `Deployment` tab of your sidecar details.
 * Export the environment variable `CYRAL_SIDECAR_VERSION` with the desired sidecar
 version.
-* Run [install-linux.sh](https://github.com/cyral-quickstart/quickstart-sidecar-linux/blob/v0.1.0/install-linux.sh) as a super user.
+* Run [install-linux.sh](https://github.com/cyral-quickstart/quickstart-sidecar-linux/blob/main/install-linux.sh) as a super user.
 
 Use the command below as an example:
 
